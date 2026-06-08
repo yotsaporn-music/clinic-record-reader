@@ -47,7 +47,7 @@ export default function UploadZone({ onFilesSelect, preview, disabled, pendingCo
             src={preview}
             alt="preview"
             className="w-full rounded-xl object-contain"
-            style={{ maxHeight: 520 }}
+            style={{ maxHeight: '50vh', minHeight: 300 }}
           />
           {pendingCount > 0 && (
             <span className="absolute top-2 right-2 bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full">
