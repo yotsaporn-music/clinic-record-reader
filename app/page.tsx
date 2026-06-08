@@ -16,7 +16,6 @@ export default function Home() {
   const [queue, setQueue] = useState<QueueEntry[]>([])
   const [error, setError] = useState<string | null>(null)
 
-  // Auto-load next pending file when current slot is empty
   useEffect(() => {
     if (!file && !current && !analyzing && pendingFiles.length > 0) {
       const [next, ...rest] = pendingFiles
@@ -29,7 +28,6 @@ export default function Home() {
 
   function handleFilesSelect(selectedFiles: File[]) {
     if (!file && !current && !analyzing) {
-      // Load first immediately, queue the rest
       const [first, ...rest] = selectedFiles
       setFile(first)
       setPreview(URL.createObjectURL(first))
@@ -38,7 +36,6 @@ export default function Home() {
       setError(null)
       setPendingFiles(prev => [...prev, ...rest])
     } else {
-      // Already working on something — queue all
       setPendingFiles(prev => [...prev, ...selectedFiles])
     }
   }
@@ -78,50 +75,33 @@ export default function Home() {
 
   function handleConfirm() {
     if (!current) return
-
     const date = current.header.date
     if (editingId) {
-      setQueue(prev => prev.map(e => {
-        if (e.id !== editingId) return e
-        return { ...e, header: current.header, items: current.items }
-      }))
+      setQueue(prev => prev.map(e => e.id !== editingId ? e : { ...e, header: current.header, items: current.items }))
       setEditingId(null)
     } else {
       const slot = assignDrSlot(date)
-      if (!slot) {
-        setError(`วันที่ ${date} เต็มแล้ว (DR.1–3) ไม่สามารถเพิ่มได้`)
-        return
-      }
-      const dayNumber = getDayNumber(date)
+      if (!slot) { setError(`วันที่ ${date} เต็มแล้ว (DR.1–3)`); return }
       const entry: QueueEntry = {
         id: `entry-${Date.now()}`,
-        dayNumber,
+        dayNumber: getDayNumber(date),
         drSlot: slot,
         header: current.header,
         items: current.items,
       }
       setQueue(prev => [...prev, entry])
     }
-
-    // Clear current — useEffect will auto-load next pending file
-    setFile(null)
-    setPreview(null)
-    setCurrent(null)
-    setError(null)
+    setFile(null); setPreview(null); setCurrent(null); setError(null)
   }
 
   function handleSkip() {
-    setFile(null)
-    setPreview(null)
-    setCurrent(null)
-    setError(null)
+    setFile(null); setPreview(null); setCurrent(null); setError(null)
   }
 
   function handleEdit(entry: QueueEntry) {
     setEditingId(entry.id)
     setCurrent({ header: entry.header, items: entry.items, confidence: 'สูง', confidence_note: '' })
-    setPreview(null)
-    setFile(null)
+    setPreview(null); setFile(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -133,128 +113,145 @@ export default function Home() {
   const totalPending = pendingFiles.length
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#f5f4f0' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: '#fdf0f5' }}>
       {/* Header */}
-      <header className="sticky top-0 z-30 flex items-center gap-3 px-6 py-3 shadow-md"
-        style={{ background: '#1a1a2e' }}>
-        <svg className="w-7 h-7 text-white opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
+      <header className="sticky top-0 z-30 flex items-center gap-4 px-6 py-3 shadow-md"
+        style={{ background: '#7a4f5a' }}>
+        {/* Logo placeholder — replace /logo.png with your actual logo file */}
+        <img src="/logo.png" alt="Mega Clinic" className="h-9 w-auto object-contain"
+          onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
         <div>
-          <h1 className="text-white font-bold text-base leading-tight">Mega Clinic</h1>
-          <p className="text-white/50 text-xs">ระบบอ่านใบบันทึกแพทย์</p>
+          <h1 className="text-white font-black text-lg tracking-widest leading-tight">MEGA CLINIC</h1>
+          <p className="text-pink-200 text-xs tracking-wide">ระบบอ่านใบบันทึกแพทย์</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
           {totalPending > 0 && (
-            <span className="bg-yellow-400/20 text-yellow-300 text-xs px-3 py-1 rounded-full">
+            <span className="text-xs px-3 py-1 rounded-full font-medium"
+              style={{ background: '#f4a7c0', color: '#5a2533' }}>
               รอวิเคราะห์: {totalPending} รูป
             </span>
           )}
           {queue.length > 0 && (
-            <span className="bg-white/10 text-white text-xs px-3 py-1 rounded-full">
+            <span className="text-xs px-3 py-1 rounded-full font-medium"
+              style={{ background: '#a8d8ea', color: '#1a4a5a' }}>
               Queue: {queue.length} รายการ
             </span>
           )}
         </div>
       </header>
 
-      {/* Main layout */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-0 lg:gap-6 p-4 lg:p-6 max-w-7xl mx-auto w-full">
-        {/* LEFT — Upload & Review */}
-        <div className="flex flex-col gap-4">
-          <div className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-sm text-gray-700">
-                {isEditing ? '✏️ แก้ไขรายการ' : '📋 งานปัจจุบัน'}
-              </h2>
+      {/* Main layout: Left = image+queue, Right = form */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-5 gap-4 p-4 lg:p-5 max-w-screen-2xl mx-auto w-full">
+
+        {/* LEFT — Image preview + Queue */}
+        <div className="lg:col-span-2 flex flex-col gap-3">
+
+          {/* Image upload zone */}
+          <div className="rounded-2xl shadow-sm overflow-hidden" style={{ background: '#fff5f8' }}>
+            <div className="flex items-center justify-between px-4 py-2 border-b" style={{ borderColor: '#f4c2d0' }}>
+              <span className="text-sm font-semibold" style={{ color: '#7a4f5a' }}>
+                {isEditing ? '✏️ แก้ไขรายการ' : '🖼️ รูปใบบันทึก'}
+              </span>
               {isEditing && (
-                <button
-                  onClick={() => { setEditingId(null); setCurrent(null) }}
-                  className="text-xs text-gray-400 hover:text-gray-600"
-                >ยกเลิกแก้ไข</button>
+                <button onClick={() => { setEditingId(null); setCurrent(null) }}
+                  className="text-xs" style={{ color: '#c4a882' }}>ยกเลิกแก้ไข</button>
+              )}
+              {totalPending > 0 && !isEditing && (
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full"
+                  style={{ background: '#f4a7c0', color: '#5a2533' }}>+{totalPending} รูปถัดไป</span>
               )}
             </div>
 
             {!isEditing && (
-              <>
-                <UploadZone
-                  onFilesSelect={handleFilesSelect}
-                  preview={preview}
-                  disabled={analyzing}
-                  pendingCount={totalPending}
-                />
+              <UploadZone
+                onFilesSelect={handleFilesSelect}
+                preview={preview}
+                disabled={analyzing}
+              />
+            )}
 
-                {file && !current && (
-                  <button
-                    onClick={handleAnalyze}
-                    disabled={analyzing}
-                    className={`w-full py-2.5 px-4 rounded-xl font-semibold text-sm transition-all
-                      ${analyzing
-                        ? 'bg-blue-300 text-white cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow hover:shadow-md active:scale-95'
-                      }`}
-                  >
-                    {analyzing ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                        กำลังวิเคราะห์...
-                      </span>
-                    ) : `🔍 วิเคราะห์ด้วย AI${totalPending > 0 ? ` (เหลือ ${totalPending} รูป)` : ''}`}
-                  </button>
-                )}
-              </>
+            {isEditing && !preview && (
+              <div className="flex items-center justify-center py-16 text-sm" style={{ color: '#c4a882' }}>
+                กำลังแก้ไขรายการจาก Queue
+              </div>
             )}
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-600">
+              <div className="mx-3 mb-3 rounded-lg px-3 py-2 text-sm" style={{ background: '#fde8ee', color: '#9b2335' }}>
                 ⚠️ {error}
+              </div>
+            )}
+
+            {/* Analyze button */}
+            {file && !current && !isEditing && (
+              <div className="px-3 pb-3">
+                <button onClick={handleAnalyze} disabled={analyzing}
+                  className="w-full py-2.5 px-4 rounded-xl font-bold text-sm transition-all"
+                  style={{
+                    background: analyzing ? '#f4c2d0' : '#e8749a',
+                    color: 'white',
+                    cursor: analyzing ? 'not-allowed' : 'pointer',
+                  }}>
+                  {analyzing ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      กำลังวิเคราะห์...
+                    </span>
+                  ) : `🔍 วิเคราะห์ด้วย AI${totalPending > 0 ? ` (เหลือ ${totalPending} รูป)` : ''}`}
+                </button>
               </div>
             )}
           </div>
 
-          {current && (
-            <>
-              <ReviewForm
-                result={current}
-                onChange={setCurrent}
-              />
+          {/* Queue — compact, below image */}
+          <div className="rounded-2xl shadow-sm flex-1" style={{ background: '#fff5f8' }}>
+            <div className="flex items-center justify-between px-4 py-2 border-b" style={{ borderColor: '#f4c2d0' }}>
+              <span className="text-sm font-semibold" style={{ color: '#7a4f5a' }}>📥 Queue</span>
+              <span className="text-xs" style={{ color: '#c4a882' }}>{queue.length} รายการ</span>
+            </div>
+            <div className="px-3 py-2">
+              <QueueList queue={queue} onEdit={handleEdit} onDelete={handleDelete} compact />
+            </div>
+            <div className="px-3 pb-3">
+              <ExportButton queue={queue} />
+            </div>
+          </div>
+        </div>
 
-              <div className="flex gap-2">
-                <button
-                  onClick={handleConfirm}
-                  className="flex-1 py-3 px-4 rounded-xl font-bold text-sm bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
-                >
-                  <span className="text-base">✓</span>
-                  {isEditing ? 'บันทึกการแก้ไข' : `ยืนยัน เพิ่มเข้า Queue${totalPending > 0 ? ` → ถัดไป` : ''}`}
+        {/* RIGHT — Review form */}
+        <div className="lg:col-span-3 flex flex-col gap-3">
+          {current ? (
+            <>
+              <ReviewForm result={current} onChange={setCurrent} />
+              <div className="flex gap-2 pb-2">
+                <button onClick={handleConfirm}
+                  className="flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all shadow"
+                  style={{ background: '#a8d8ea', color: '#1a4a5a' }}>
+                  ✓ {isEditing ? 'บันทึกการแก้ไข' : `ยืนยัน เพิ่มเข้า Queue${totalPending > 0 ? ' → ถัดไป' : ''}`}
                 </button>
                 {!isEditing && (
-                  <button
-                    onClick={handleSkip}
-                    className="py-3 px-4 rounded-xl font-semibold text-sm bg-gray-100 hover:bg-gray-200 text-gray-600 transition-all"
-                  >
+                  <button onClick={handleSkip}
+                    className="py-3 px-4 rounded-xl font-semibold text-sm transition-all"
+                    style={{ background: '#f0e6d6', color: '#7a5a3a' }}>
                     ข้าม
                   </button>
                 )}
               </div>
             </>
-          )}
-        </div>
-
-        {/* RIGHT — Queue */}
-        <div className="flex flex-col gap-4">
-          <div className="bg-white rounded-2xl shadow-sm p-4 flex-1">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold text-sm text-gray-700">📥 Queue รายการที่ยืนยันแล้ว</h2>
-              <span className="text-xs text-gray-400">{queue.length} รายการ</span>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full rounded-2xl shadow-sm py-24"
+              style={{ background: '#fff5f8' }}>
+              <svg className="w-16 h-16 mb-4" style={{ color: '#f4c2d0' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="text-sm font-medium" style={{ color: '#c4a882' }}>อัปโหลดรูปแล้วกดวิเคราะห์</p>
+              <p className="text-xs mt-1" style={{ color: '#d4b896' }}>ผลวิเคราะห์จะแสดงที่นี่</p>
             </div>
-            <QueueList queue={queue} onEdit={handleEdit} onDelete={handleDelete} />
-          </div>
-
-          <ExportButton queue={queue} />
+          )}
         </div>
       </div>
     </div>
