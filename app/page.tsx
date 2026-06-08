@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import UploadZone from '@/components/UploadZone'
 import ReviewForm from '@/components/ReviewForm'
 import QueueList from '@/components/QueueList'
@@ -7,6 +7,7 @@ import ExportButton from '@/components/ExportButton'
 import type { AnalyzeResult, QueueEntry } from '@/types/record'
 
 export default function Home() {
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
@@ -15,12 +16,31 @@ export default function Home() {
   const [queue, setQueue] = useState<QueueEntry[]>([])
   const [error, setError] = useState<string | null>(null)
 
-  function handleFileSelect(selectedFile: File) {
-    setFile(selectedFile)
-    setPreview(URL.createObjectURL(selectedFile))
-    setCurrent(null)
-    setEditingId(null)
-    setError(null)
+  // Auto-load next pending file when current slot is empty
+  useEffect(() => {
+    if (!file && !current && !analyzing && pendingFiles.length > 0) {
+      const [next, ...rest] = pendingFiles
+      setPendingFiles(rest)
+      setFile(next)
+      setPreview(URL.createObjectURL(next))
+      setError(null)
+    }
+  }, [file, current, analyzing, pendingFiles])
+
+  function handleFilesSelect(selectedFiles: File[]) {
+    if (!file && !current && !analyzing) {
+      // Load first immediately, queue the rest
+      const [first, ...rest] = selectedFiles
+      setFile(first)
+      setPreview(URL.createObjectURL(first))
+      setCurrent(null)
+      setEditingId(null)
+      setError(null)
+      setPendingFiles(prev => [...prev, ...rest])
+    } else {
+      // Already working on something — queue all
+      setPendingFiles(prev => [...prev, ...selectedFiles])
+    }
   }
 
   async function handleAnalyze() {
@@ -61,7 +81,6 @@ export default function Home() {
 
     const date = current.header.date
     if (editingId) {
-      // Update existing entry
       setQueue(prev => prev.map(e => {
         if (e.id !== editingId) return e
         return { ...e, header: current.header, items: current.items }
@@ -84,7 +103,14 @@ export default function Home() {
       setQueue(prev => [...prev, entry])
     }
 
-    // Reset left panel
+    // Clear current — useEffect will auto-load next pending file
+    setFile(null)
+    setPreview(null)
+    setCurrent(null)
+    setError(null)
+  }
+
+  function handleSkip() {
     setFile(null)
     setPreview(null)
     setCurrent(null)
@@ -104,6 +130,7 @@ export default function Home() {
   }
 
   const isEditing = editingId !== null
+  const totalPending = pendingFiles.length
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#f5f4f0' }}>
@@ -119,6 +146,11 @@ export default function Home() {
           <p className="text-white/50 text-xs">ระบบอ่านใบบันทึกแพทย์</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          {totalPending > 0 && (
+            <span className="bg-yellow-400/20 text-yellow-300 text-xs px-3 py-1 rounded-full">
+              รอวิเคราะห์: {totalPending} รูป
+            </span>
+          )}
           {queue.length > 0 && (
             <span className="bg-white/10 text-white text-xs px-3 py-1 rounded-full">
               Queue: {queue.length} รายการ
@@ -147,9 +179,10 @@ export default function Home() {
             {!isEditing && (
               <>
                 <UploadZone
-                  onFileSelect={handleFileSelect}
+                  onFilesSelect={handleFilesSelect}
                   preview={preview}
                   disabled={analyzing}
+                  pendingCount={totalPending}
                 />
 
                 {file && !current && (
@@ -170,7 +203,7 @@ export default function Home() {
                         </svg>
                         กำลังวิเคราะห์...
                       </span>
-                    ) : '🔍 วิเคราะห์ด้วย AI'}
+                    ) : `🔍 วิเคราะห์ด้วย AI${totalPending > 0 ? ` (เหลือ ${totalPending} รูป)` : ''}`}
                   </button>
                 )}
               </>
@@ -190,13 +223,23 @@ export default function Home() {
                 onChange={setCurrent}
               />
 
-              <button
-                onClick={handleConfirm}
-                className="w-full py-3 px-4 rounded-xl font-bold text-sm bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
-              >
-                <span className="text-base">✓</span>
-                {isEditing ? 'บันทึกการแก้ไข' : 'ยืนยัน เพิ่มเข้า Queue'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleConfirm}
+                  className="flex-1 py-3 px-4 rounded-xl font-bold text-sm bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  <span className="text-base">✓</span>
+                  {isEditing ? 'บันทึกการแก้ไข' : `ยืนยัน เพิ่มเข้า Queue${totalPending > 0 ? ` → ถัดไป` : ''}`}
+                </button>
+                {!isEditing && (
+                  <button
+                    onClick={handleSkip}
+                    className="py-3 px-4 rounded-xl font-semibold text-sm bg-gray-100 hover:bg-gray-200 text-gray-600 transition-all"
+                  >
+                    ข้าม
+                  </button>
+                )}
+              </div>
             </>
           )}
         </div>
