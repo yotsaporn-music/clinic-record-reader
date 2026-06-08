@@ -9,8 +9,8 @@ import type { AnalyzeResult, QueueEntry } from '@/types/record'
 // Pantone palette
 const C = {
   brown:     '#7B4028', // Pantone 161 — header
-  pink:      '#F2C4CE', // Pantone 196 — background
-  pinkLight: '#FAD4DC', // lighter pink for cards
+  pink:      '#FAEEF1', // soft pink — background
+  pinkLight: '#FDF5F7', // lighter pink for cards
   blue:      '#A8CEE3', // Pantone 277 — buttons/icons
   blueDark:  '#1a4a5a', // blue text
   yellow:    '#FAF0A0', // Pantone 938 — uncertain rows / accents
