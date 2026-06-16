@@ -150,18 +150,20 @@ export default function ReviewForm({ result, onChange }: Props) {
                 {/* Category */}
                 <div className="flex items-center gap-0.5">
                   {item.uncertain && <span className="text-xs">⚠️</span>}
-                  <select
+                  <datalist id={`cat-${item.id}`}>
+                    {[...CATEGORY_NAMES, 'อื่นๆ'].map(c => <option key={c} value={c} />)}
+                  </datalist>
+                  <input
+                    list={`cat-${item.id}`}
                     className="border rounded px-1 py-1 text-xs bg-white w-full"
                     style={{ borderColor: '#F2C4CE' }}
                     value={item.category}
+                    placeholder="หมวด..."
                     onChange={e => {
-                      const cat = e.target.value as Category
-                      setItem(item.id, 'category', cat)
+                      setItem(item.id, 'category', e.target.value)
                       setItem(item.id, 'name', '')
-                    }}>
-                    {CATEGORY_NAMES.map(c => <option key={c} value={c}>{c}</option>)}
-                    <option value="อื่นๆ">อื่นๆ</option>
-                  </select>
+                    }}
+                  />
                 </div>
 
                 {/* Name — freely typeable with datalist suggestions */}
